@@ -19,10 +19,10 @@ export let baseTokenContract = BaseContract.bind(Address.fromString(BASE_ADDRESS
 
 export const INCLUDED_PAIRS: string[] = [
   '0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801', //UNI_WETH
-  '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8' //USDC_WETH
+  '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8', //USDC_WETH  
   //'0x60594a405d53811d3bc4766596efd80fd545a270' //DAI_WETH
 
-  // not done yet
+  // need to retrieve the correct IDs
   // '0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852', //USDT_WETH @ 10093341
   // '0xbb2b8038a1640196fbe3e38816f3e67cba72d940' //WBTC_WETH @ 10091097
 ]

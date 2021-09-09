@@ -280,6 +280,9 @@ type Transaction @entity {
   swaps: [Swap]! @derivedFrom(field: "transaction")
   flashed: [Flash]! @derivedFrom(field: "transaction")
   collects: [Collect]! @derivedFrom(field: "transaction")
+
+  # counts number of swaps
+  swapCount: BigInt!
 }
 
 type Mint @entity {
@@ -377,10 +380,17 @@ type Swap @entity {
   amountUSD: BigDecimal!
   # The sqrt(price) of the pool after the swap, as a Q64.96
   sqrtPriceX96: BigInt!
+  # The price in USD
+  priceUSD: BigDecimal!
   # the tick after the swap
   tick: BigInt!
   # index within the txn
   logIndex: BigInt
+
+  # user's token0 balance (if tracked)
+  balance0: BigInt
+  # user's token1 balance (if tracked)
+  balance1: BigInt
 }
 
 type BaseTransfer @entity {

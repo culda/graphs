@@ -3,8 +3,9 @@ import { ERC20 } from '../types/Factory/ERC20'
 import { ERC20SymbolBytes } from '../types/Factory/ERC20SymbolBytes'
 import { ERC20NameBytes } from '../types/Factory/ERC20NameBytes'
 import { StaticTokenDefinition } from './staticTokenDefinition'
-import { BigInt, Address } from '@graphprotocol/graph-ts'
+import { BigInt, Address, log } from '@graphprotocol/graph-ts'
 import { isNullEthValue } from '.'
+import { baseTokenContract, BASE_ADDRESS } from './constants'
 
 export function fetchTokenSymbol(tokenAddress: Address): string {
   let contract = ERC20.bind(tokenAddress)
@@ -88,4 +89,12 @@ export function fetchTokenDecimals(tokenAddress: Address): BigInt {
   }
 
   return BigInt.fromI32(decimalValue as i32)
+}
+
+export function getTokenBalance(tokenAddress: Address, user: Address): BigInt {
+  log.debug("token {}", [tokenAddress.toHexString()]);
+  if (tokenAddress == Address.fromString(BASE_ADDRESS)) {
+    return baseTokenContract.balanceOf(user);
+  }
+  return null;
 }

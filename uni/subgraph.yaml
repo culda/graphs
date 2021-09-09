@@ -107,6 +107,8 @@ templates:
           file: ./abis/factory.json
         - name: ERC20
           file: ./abis/ERC20.json
+        - name: baseToken
+          file: ./abis/baseToken.json
       eventHandlers:
         - event: Initialize(uint160,int24)
           handler: handleInitialize

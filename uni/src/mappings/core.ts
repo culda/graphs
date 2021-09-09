@@ -1,7 +1,7 @@
 /* eslint-disable prefer-const */
-import { Bundle, Burn, Factory, Mint, Pool, Swap, Tick, Token } from '../types/schema'
+import { Bundle, Burn, Factory, Mint, Pool, Swap, Tick, Token, User } from '../types/schema'
 import { Pool as PoolABI } from '../types/Factory/Pool'
-import { BigDecimal, BigInt, ethereum, store } from '@graphprotocol/graph-ts'
+import { Address, BigDecimal, BigInt, ethereum, log, store } from '@graphprotocol/graph-ts'
 import {
   Burn as BurnEvent,
   Flash as FlashEvent,
@@ -10,7 +10,7 @@ import {
   Swap as SwapEvent
 } from '../types/templates/Pool/Pool'
 import { convertTokenToDecimal, loadTransaction, safeDiv } from '../utils'
-import { FACTORY_ADDRESS, ONE_BI, ZERO_BD, ZERO_BI } from '../utils/constants'
+import { BASE_ADDRESS, FACTORY_ADDRESS, ONE_BI, ZERO_BD, ZERO_BI } from '../utils/constants'
 import { findEthPerToken, getEthPriceInUSD, getTrackedAmountUSD, sqrtPriceX96ToTokenPrices } from '../utils/pricing'
 import {
   updatePoolDayData,
@@ -21,6 +21,8 @@ import {
   updateUniswapDayData
 } from '../utils/intervalUpdates'
 import { createTick, feeTierToTickSpacing } from '../utils/tick'
+import { createUser, userExists } from '../utils/user'
+import { getTokenBalance } from '../utils/token'
 
 export function handleInitialize(event: Initialize): void {
   let pool = Pool.load(event.address.toHexString())
@@ -358,10 +360,13 @@ export function handleSwap(event: SwapEvent): void {
   pool.save()
 
   // update USD pricing
-  bundle.ethPriceUSD = getEthPriceInUSD()
+  let ethPrice = getEthPriceInUSD()
+  let token0DerivedEth = findEthPerToken(token0 as Token)
+  let token1DerivedEth = findEthPerToken(token1 as Token)
+  bundle.ethPriceUSD = ethPrice
   bundle.save()
-  token0.derivedETH = findEthPerToken(token0 as Token)
-  token1.derivedETH = findEthPerToken(token1 as Token)
+  token0.derivedETH = token0DerivedEth
+  token1.derivedETH = token1DerivedEth
 
   /**
    * Things afffected by new USD rates
@@ -377,23 +382,53 @@ export function handleSwap(event: SwapEvent): void {
   token0.totalValueLockedUSD = token0.totalValueLocked.times(token0.derivedETH).times(bundle.ethPriceUSD)
   token1.totalValueLockedUSD = token1.totalValueLocked.times(token1.derivedETH).times(bundle.ethPriceUSD)
 
-  // create Swap event
-  let transaction = loadTransaction(event)
-  let swap = new Swap(transaction.id + '#' + pool.txCount.toString())
-  swap.transaction = transaction.id
-  swap.timestamp = transaction.timestamp
-  swap.pool = pool.id
-  swap.token0 = pool.token0
-  swap.token1 = pool.token1
-  swap.sender = event.params.sender
-  swap.origin = event.transaction.from
-  swap.user = event.params.recipient.toHexString()
-  swap.amount0 = amount0
-  swap.amount1 = amount1
-  swap.amountUSD = amountTotalUSDTracked
-  swap.tick = BigInt.fromI32(event.params.tick as i32)
-  swap.sqrtPriceX96 = event.params.sqrtPriceX96
-  swap.logIndex = event.logIndex
+  log.debug('new swap considered amount: {}', [amountTotalUSDTracked.toString()])
+  if (amountTotalUSDTracked.ge(BigDecimal.fromString('10000')) || userExists(event.params.sender) != null) {
+    log.debug('user tracked {}', [amountTotalUSDTracked.toString()])
+    // create Swap event
+    let transaction = loadTransaction(event)
+    transaction.swapCount = transaction.swapCount.plus(BigInt.fromI32(1))
+    transaction.save()
+
+    let swap = new Swap(transaction.id + '#' + pool.txCount.toString())
+    swap.transaction = transaction.id
+    swap.timestamp = transaction.timestamp
+    swap.pool = pool.id
+    swap.token0 = pool.token0
+    swap.token1 = pool.token1
+    swap.sender = event.params.sender
+    swap.origin = event.transaction.from
+    swap.user = event.params.recipient.toHexString()
+    swap.amount0 = amount0
+    swap.amount1 = amount1
+    swap.amountUSD = amountTotalUSDTracked
+    swap.tick = BigInt.fromI32(event.params.tick as i32)
+    swap.sqrtPriceX96 = event.params.sqrtPriceX96
+    swap.logIndex = event.logIndex
+    swap.amountUSD = amountTotalUSDTracked
+
+    log.debug('getting token balances {} {}', [pool.token0, pool.token1])
+
+    if (Address.fromString(pool.token0) == Address.fromString(BASE_ADDRESS)) {
+      log.debug('token 0 is base {}', [swap.id])
+      swap.balance0 = getTokenBalance(Address.fromString(pool.token0), event.params.recipient)
+      swap.priceUSD = ethPrice.times(token0DerivedEth)
+    }
+    if (Address.fromString(pool.token1) == Address.fromString(BASE_ADDRESS)) {
+      log.debug('token 1 is base {}', [swap.id])
+      swap.balance1 = getTokenBalance(Address.fromString(pool.token1), event.params.recipient)
+      swap.priceUSD = ethPrice.times(token1DerivedEth)
+    }
+
+    swap.save()
+
+    if (transaction.swapCount.equals(BigInt.fromI32(1))) {
+      log.debug('new swap {}', [swap.id])
+      let user = createUser(event.params.sender)
+      user.usdSwapped = user.usdSwapped.plus(amountTotalUSDTracked)
+      user.save()
+    }
+  }
 
   // update fee growth
   let poolContract = PoolABI.bind(event.address)
@@ -446,7 +481,6 @@ export function handleSwap(event: SwapEvent): void {
   token1HourData.untrackedVolumeUSD = token1HourData.untrackedVolumeUSD.plus(amountTotalUSDTracked)
   token1HourData.feesUSD = token1HourData.feesUSD.plus(feesUSD)
 
-  swap.save()
   token0DayData.save()
   token1DayData.save()
   uniswapDayData.save()

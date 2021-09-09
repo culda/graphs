@@ -6,6 +6,7 @@ import { createUser } from '../utils/user'
 
 export function handleTransfer(event: Transfer): void {
   let baseTransfer = new BaseTransfer(event.transaction.hash.toHex())
+
   let userFrom = createUser(event.params.from)
   let userTo = createUser(event.params.to)
 
@@ -24,6 +25,8 @@ export function handleTransfer(event: Transfer): void {
 
   userTo.lastTransferTimestamp = event.block.timestamp
   userTo.save()
+
+
 
   // let id = wbtcContract
   //   .symbol()

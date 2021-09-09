@@ -7,7 +7,7 @@
     "build": "graph build",
     "create-local": "graph create culda/rugzy-uni --node http://127.0.0.1:8020",
     "deploy-local": "graph deploy culda/rugzy-uni --debug --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
-    "deploy": "graph deploy --studio culda/rugzy-uni",
+    "deploy": "graph deploy --studio uni",
     "deploy-dev": "graph deploy culda/rugzy-uni --ipfs http://35.197.14.14:5000/ --node http://35.197.14.14:8020/ --debug",
     "deploy-staging": "graph deploy $THE_GRAPH_GITHUB_USER/$THE_GRAPH_SUBGRAPH_NAME /Uniswap --ipfs https://api.staging.thegraph.com/ipfs/ --node https://api.staging.thegraph.com/deploy/",
     "watch-local": "graph deploy culda/rugzy-uni --watch --debug --node http://127.0.0.1:8020/ --ipfs http://localhost:5001"
